@@ -903,6 +903,15 @@
         // Ignore if typing in input
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
 
+        // Handle Ctrl+ shortcuts first (case-insensitive)
+        if (e.ctrlKey || e.metaKey) {
+            const k = e.key.toLowerCase();
+            if (k === 'a') { e.preventDefault(); selectAllFrames(); return; }
+            if (k === 'c') { e.preventDefault(); copyFramesToClipboard(); return; }
+            if (k === 'v') { e.preventDefault(); pasteFramesFromClipboard(); return; }
+            if (k === 'd') { e.preventDefault(); duplicateSelectedFrames(); return; }
+        }
+
         switch (e.key) {
             case ' ':
                 e.preventDefault();
@@ -937,30 +946,6 @@
                         state.selectedFrames.add(state.currentFrame);
                     }
                     updateSelectionUI();
-                }
-                break;
-            case 'a':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    selectAllFrames();
-                }
-                break;
-            case 'c':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    copyFramesToClipboard();
-                }
-                break;
-            case 'v':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    pasteFramesFromClipboard();
-                }
-                break;
-            case 'd':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    duplicateSelectedFrames();
                 }
                 break;
         }
