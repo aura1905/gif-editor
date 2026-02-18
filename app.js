@@ -170,12 +170,26 @@
             if (e.target === dom.tagModal) closeTagModal();
         });
 
-        // Tag presets
+        // Tag presets with auto-color mapping
+        const TAG_PRESET_COLORS = {
+            idle: '#4fc3f7', attack: '#e57373', run: '#81c784', walk: '#ffb74d',
+            die: '#ba68c8', hit: '#f06292', cast: '#4dd0e1', jump: '#fff176',
+            skill: '#ff8a65', dash: '#aed581', guard: '#90a4ae', stun: '#ce93d8'
+        };
         dom.tagPresets.addEventListener('click', (e) => {
             if (e.target.classList.contains('tag-preset-btn')) {
-                dom.tagNameInput.value = e.target.dataset.name;
+                const name = e.target.dataset.name;
+                dom.tagNameInput.value = name;
                 dom.tagPresets.querySelectorAll('.tag-preset-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
+
+                // Auto-select matching color
+                const autoColor = TAG_PRESET_COLORS[name];
+                if (autoColor) {
+                    dom.tagColors.querySelectorAll('.tag-color-btn').forEach(b => {
+                        b.classList.toggle('selected', b.dataset.color === autoColor);
+                    });
+                }
             }
         });
 
@@ -361,13 +375,42 @@
         dom.frameList.innerHTML = '';
 
         state.frames.forEach((frame, i) => {
+            // Find tag for this frame
+            const tag = state.tags.find(t => i >= t.from && i <= t.to);
+
+            // Insert inline tag header before the first frame of each tag
+            if (tag && i === tag.from) {
+                const tagIdx = state.tags.indexOf(tag);
+                const header = document.createElement('div');
+                header.className = 'frame-tag-header';
+                header.style.background = tag.color;
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = tag.name;
+
+                const rangeSpan = document.createElement('span');
+                rangeSpan.className = 'tag-range';
+                rangeSpan.textContent = `${tag.from + 1}~${tag.to + 1}`;
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'tag-delete';
+                delBtn.textContent = '\u00d7';
+                delBtn.addEventListener('click', () => {
+                    deleteTag(tagIdx);
+                    renderFrameList();
+                });
+
+                header.appendChild(nameSpan);
+                header.appendChild(rangeSpan);
+                header.appendChild(delBtn);
+                dom.frameList.appendChild(header);
+            }
+
             const item = document.createElement('div');
             item.className = 'frame-item fade-in';
             item.dataset.index = i;
             item.style.animationDelay = `${Math.min(i * 20, 300)}ms`;
 
-            // Find tag for this frame
-            const tag = state.tags.find(t => i >= t.from && i <= t.to);
             if (tag) {
                 // Determine position in tag
                 if (i === tag.from && i === tag.to) {
@@ -380,20 +423,11 @@
                     item.classList.add('tag-mid');
                 }
 
-                // Color indicator bar
+                // Color indicator bar (2px left stripe)
                 const indicator = document.createElement('div');
                 indicator.className = 'tag-indicator';
                 indicator.style.backgroundColor = tag.color;
                 item.appendChild(indicator);
-
-                // Tag label on first frame
-                if (i === tag.from) {
-                    const label = document.createElement('span');
-                    label.className = 'tag-label';
-                    label.style.backgroundColor = tag.color;
-                    label.textContent = `${tag.name} (${tag.from + 1}~${tag.to + 1})`;
-                    item.appendChild(label);
-                }
             }
 
             // Number
@@ -559,7 +593,6 @@
         state.currentFrame = Math.min(state.currentFrame, state.frames.length - 1);
 
         renderFrameList();
-        renderTagBar();
         showFrame(state.currentFrame);
         showToast(`${toDelete.length}개 프레임 삭제됨`);
     }
@@ -1068,7 +1101,6 @@
             dom.canvasContainer.style.display = 'flex';
             enableControls(true);
             renderFrameList();
-            renderTagBar();
             showFrame(state.currentFrame);
         } else {
             dom.dropZone.style.display = 'flex';
@@ -1096,7 +1128,6 @@
                     loaded++;
                     if (loaded === files.length) {
                         renderFrameList();
-                        renderTagBar();
                         showFrame(state.currentFrame);
                         showToast(`${files.length}개 GIF 추가 완료 (총 ${state.frames.length}프레임)`, 'success');
                     }
@@ -1214,7 +1245,6 @@
         state.selectedFrames.clear();
         state.currentFrame = insertAt;
         renderFrameList();
-        renderTagBar();
         showFrame(insertAt);
         showToast(`빈 프레임 삽입 (#${insertAt + 1})`, 'success');
     }
@@ -1258,19 +1288,29 @@
         const indices = Array.from(state.selectedFrames).sort((a, b) => a - b);
         const from = indices[0];
         const to = indices[indices.length - 1];
+
+        // Check for overlapping tags
+        const overlap = state.tags.find(t => {
+            return (from <= t.to && to >= t.from);
+        });
+        if (overlap) {
+            showToast(`프레임 범위가 기존 태그 "${overlap.name}" (${overlap.from + 1}~${overlap.to + 1})과 겨칩니다`, 'error');
+            return;
+        }
+
         const colorBtn = dom.tagColors.querySelector('.tag-color-btn.selected');
         const color = colorBtn ? colorBtn.dataset.color : '#4fc3f7';
 
         state.tags.push({ name, from, to, color });
         closeTagModal();
-        renderTagBar();
+        renderFrameList();
         showToast(`태그 "${name}" 생성 (프레임 ${from + 1}~${to + 1})`, 'success');
     }
 
     function deleteTag(index) {
         const tag = state.tags[index];
         state.tags.splice(index, 1);
-        renderTagBar();
+        renderFrameList();
         showToast(`태그 "${tag.name}" 삭제됨`);
     }
 
@@ -1428,7 +1468,6 @@
         state.selectedFrames.clear();
         state.currentFrame = insertAt;
         renderFrameList();
-        renderTagBar();
         showFrame(insertAt);
         showToast(`${newFrames.length}개 프레임 붙여넣기 완료 (#${insertAt + 1}~)`, 'success');
     }

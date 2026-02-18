@@ -404,8 +404,8 @@ body {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 4px;
-    border-radius: 2px 0 0 2px;
+    width: 2px;
+    border-radius: 1px 0 0 1px;
 }
 
 /* Tag start: show label above the indicator */
@@ -424,9 +424,9 @@ body {
     pointer-events: none;
 }
 
-/* First frame in tag group: slight top padding for label */
+/* First frame in tag group */
 .frame-item.tag-start {
-    margin-top: 14px;
+    margin-top: 0;
 }
 
 /* Tag group visual connection */
@@ -436,11 +436,11 @@ body {
 }
 
 .frame-item.tag-start .tag-indicator {
-    border-radius: 2px 0 0 0;
+    border-radius: 1px 0 0 0;
 }
 
 .frame-item.tag-end .tag-indicator {
-    border-radius: 0 0 0 2px;
+    border-radius: 0 0 0 1px;
 }
 
 .frame-item:hover {
@@ -789,15 +789,49 @@ body {
    ================================ */
 
 #tag-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 4px 4px 0;
-    flex-shrink: 0;
+    display: none;
 }
 
-#tag-bar:empty {
-    display: none;
+/* Inline tag headers in frame list */
+.frame-tag-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    margin: 6px 0 2px;
+    border-radius: var(--radius-sm);
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    cursor: default;
+    position: relative;
+}
+
+.frame-tag-header .tag-range {
+    font-weight: 400;
+    opacity: 0.8;
+    font-size: 9px;
+}
+
+.frame-tag-header .tag-delete {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity var(--transition);
+    padding: 0 2px;
+}
+
+.frame-tag-header:hover .tag-delete {
+    opacity: 0.8;
+}
+
+.frame-tag-header .tag-delete:hover {
+    opacity: 1;
 }
 
 .tag-bar-item {
