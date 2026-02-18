@@ -29,8 +29,11 @@
         };
     }
 
-    // Active document shortcut — 'state' 변수는 항상 현재 활성 문서를 가리킴
+    // Active document shortcut
     let state = createDocState('untitled');
+
+    // Cross-tab frame clipboard
+    let frameClipboard = []; // { imageData, delay, width, height }
 
     // ==============================
     // DOM References
@@ -942,6 +945,18 @@
                     selectAllFrames();
                 }
                 break;
+            case 'c':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    copyFramesToClipboard();
+                }
+                break;
+            case 'v':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    pasteFramesFromClipboard();
+                }
+                break;
             case 'd':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
@@ -1318,6 +1333,88 @@
             showToast('Aseprite 생성 실패: ' + err.message, 'error');
             console.error(err);
         }
+    }
+
+    // ==============================
+    // Frame Clipboard (Cross-Tab)
+    // ==============================
+    function copyFramesToClipboard() {
+        if (state.selectedFrames.size === 0) {
+            showToast('복사할 프레임을 선택하세요', 'error');
+            return;
+        }
+
+        const indices = Array.from(state.selectedFrames).sort((a, b) => a - b);
+        frameClipboard = indices.map(i => {
+            const frame = state.frames[i];
+            // Deep copy canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = frame.canvas.width;
+            canvas.height = frame.canvas.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(frame.canvas, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            return {
+                imageData: imageData,
+                delay: frame.delay,
+                canvas: canvas,
+                srcWidth: frame.canvas.width,
+                srcHeight: frame.canvas.height
+            };
+        });
+
+        showToast(`${frameClipboard.length}개 프레임 복사됨 (Ctrl+V로 붙여넣기)`, 'success');
+    }
+
+    function pasteFramesFromClipboard() {
+        if (frameClipboard.length === 0) {
+            showToast('클립보드가 비어있습니다 (먼저 Ctrl+C로 복사)', 'error');
+            return;
+        }
+        if (state.frames.length === 0) {
+            showToast('먼저 GIF 파일을 열어주세요', 'error');
+            return;
+        }
+
+        stopPlay();
+
+        const insertAt = state.currentFrame + 1;
+        const w = state.originalWidth;
+        const h = state.originalHeight;
+
+        const newFrames = frameClipboard.map(clipFrame => {
+            // Resize if source dimensions differ from current document
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(clipFrame.canvas, 0, 0, w, h);
+            const imageData = ctx.getImageData(0, 0, w, h);
+
+            return {
+                imageData: imageData,
+                delay: clipFrame.delay,
+                canvas: canvas
+            };
+        });
+
+        // Insert pasted frames
+        state.frames.splice(insertAt, 0, ...newFrames);
+
+        // Update tag indices
+        state.tags.forEach(tag => {
+            if (tag.from >= insertAt) tag.from += newFrames.length;
+            if (tag.to >= insertAt) tag.to += newFrames.length;
+        });
+
+        state.selectedFrames.clear();
+        state.currentFrame = insertAt;
+        renderFrameList();
+        renderTagBar();
+        showFrame(insertAt);
+        showToast(`${newFrames.length}개 프레임 붙여넣기 완료 (#${insertAt + 1}~)`, 'success');
     }
 
     // ==============================
