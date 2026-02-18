@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF Editor — 스프라이트 편집기</title>
+    <meta name="description" content="브라우저 기반 GIF 편집 도구. 프레임 편집, 사이즈 변경, 속도 조절을 쉽게.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Top Toolbar -->
+        <header id="toolbar">
+            <div class="toolbar-left">
+                <button id="btn-open" class="toolbar-btn primary" title="GIF 파일 열기">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14,2 14,8 20,8" />
+                        <line x1="12" y1="18" x2="12" y2="12" />
+                        <line x1="9" y1="15" x2="15" y2="15" />
+                    </svg>
+                    파일 열기
+                </button>
+                <button id="btn-append" class="toolbar-btn" disabled title="GIF 파일 추가 (뒤에 이어붙이기)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14,2 14,8 20,8" />
+                    </svg>
+                    GIF 추가
+                </button>
+                <div class="toolbar-separator"></div>
+                <button id="btn-delete" class="toolbar-btn danger" disabled title="선택한 프레임 삭제 (Del)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6" />
+                        <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2" />
+                    </svg>
+                    삭제
+                </button>
+                <button id="btn-duplicate" class="toolbar-btn" disabled title="선택한 프레임 복사 (Ctrl+D)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5,15H4a2,2,0,0,1-2-2V4A2,2,0,0,1,4,2H13a2,2,0,0,1,2,2V5" />
+                    </svg>
+                    복사
+                </button>
+                <button id="btn-blank" class="toolbar-btn" disabled title="현재 위치에 빈 프레임 삽입">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <line x1="12" y1="8" x2="12" y2="16" />
+                        <line x1="8" y1="12" x2="16" y2="12" />
+                    </svg>
+                    빈 프레임
+                </button>
+                <div class="toolbar-separator"></div>
+                <button id="btn-select-all" class="toolbar-btn" disabled title="전체 선택 (Ctrl+A)">전체 선택</button>
+                <button id="btn-select-odd" class="toolbar-btn" disabled title="홀수 프레임만 선택">홀수 선택</button>
+                <button id="btn-select-even" class="toolbar-btn" disabled title="짝수 프레임만 선택">짝수 선택</button>
+                <div class="toolbar-separator"></div>
+                <div class="toolbar-group">
+                    <label class="toolbar-label">프레임 수</label>
+                    <input type="number" id="input-target-frames" class="toolbar-input" placeholder="목표" min="1"
+                        max="999" disabled style="width:56px;">
+                    <button id="btn-auto-reduce" class="toolbar-btn" disabled title="입력한 프레임 수로 자동 축소">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="4,14 10,14 10,20" />
+                            <polyline points="20,10 14,10 14,4" />
+                            <path d="M14,10l7-7" />
+                            <path d="M3,21l7-7" />
+                        </svg>
+                        적용
+                    </button>
+                </div>
+            </div>
+            <div class="toolbar-center">
+                <span id="app-title" class="app-title">GIF Editor</span>
+            </div>
+            <div class="toolbar-right">
+                <div class="toolbar-group">
+                    <label class="toolbar-label">사이즈</label>
+                    <select id="select-size" class="toolbar-select" disabled>
+                        <option value="0">원본</option>
+                        <option value="512">512px</option>
+                        <option value="256">256px</option>
+                        <option value="128">128px</option>
+                        <option value="96">96px</option>
+                        <option value="64">64px</option>
+                        <option value="custom">직접 입력</option>
+                    </select>
+                    <input type="number" id="input-custom-size" class="toolbar-input" placeholder="px" min="1"
+                        max="4096" style="display:none;">
+                </div>
+                <div class="toolbar-group">
+                    <label class="toolbar-label">속도</label>
+                    <select id="select-speed" class="toolbar-select" disabled>
+                        <option value="0">원본</option>
+                        <option value="20">0.02초 (50fps)</option>
+                        <option value="40">0.04초 (25fps)</option>
+                        <option value="50">0.05초 (20fps)</option>
+                        <option value="60">0.06초 (~17fps)</option>
+                        <option value="80">0.08초 (~12fps)</option>
+                        <option value="100" selected>0.10초 (10fps)</option>
+                        <option value="150">0.15초 (~7fps)</option>
+                        <option value="200">0.20초 (5fps)</option>
+                        <option value="custom">직접 입력</option>
+                    </select>
+                    <input type="number" id="input-custom-speed" class="toolbar-input" placeholder="ms" min="10"
+                        max="10000" style="display:none;">
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- Frame List Panel (Left) -->
+            <aside id="frame-panel">
+                <div id="frame-panel-header">
+                    <span class="panel-title">프레임</span>
+                    <span id="frame-count" class="frame-count">0개</span>
+                </div>
+                <div id="tag-bar">
+                    <!-- Tags will be rendered here -->
+                </div>
+                <div id="frame-list">
+                    <!-- Frames will be rendered here -->
+                </div>
+            </aside>
+
+            <!-- Canvas Preview Area (Center) -->
+            <section id="preview-area">
+                <!-- Drop Zone (shown when no GIF loaded) -->
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" opacity="0.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17,8 12,3 7,8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <p class="drop-text">GIF 파일을 여기에 드래그하세요</p>
+                        <p class="drop-subtext">또는 <span class="drop-link" id="drop-browse">파일 찾아보기</span></p>
+                    </div>
+                </div>
+                <!-- Canvas (shown when GIF loaded) -->
+                <div id="canvas-container" style="display:none;">
+                    <canvas id="preview-canvas"></canvas>
+                    <div id="canvas-info">
+                        <span id="info-size"></span>
+                        <span id="info-frame"></span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Bar -->
+        <footer id="bottom-bar">
+            <div class="bottom-left">
+                <button id="btn-play" class="play-btn" disabled title="재생/일시정지 (Space)">
+                    <svg id="icon-play" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5,3 19,12 5,21" />
+                    </svg>
+                    <svg id="icon-pause" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"
+                        style="display:none;">
+                        <rect x="6" y="4" width="4" height="16" />
+                        <rect x="14" y="4" width="4" height="16" />
+                    </svg>
+                </button>
+                <div id="progress-bar" class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <span id="frame-indicator" class="frame-indicator">- / -</span>
+            </div>
+            <div class="bottom-right">
+                <button id="btn-create-tag" class="toolbar-btn" disabled title="선택한 프레임에 태그 생성">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+                        <line x1="7" y1="7" x2="7.01" y2="7" />
+                    </svg>
+                    태그
+                </button>
+                <div class="toolbar-separator"></div>
+                <button id="btn-download" class="toolbar-btn accent" disabled title="편집된 GIF 다운로드">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7,10 12,15 17,10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    GIF
+                </button>
+                <button id="btn-export-ase" class="toolbar-btn accent" disabled title="Aseprite 파일로 내보내기">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7,10 12,15 17,10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    .aseprite
+                </button>
+            </div>
+        </footer>
+
+        <!-- Credits Bar -->
+        <div id="credits-bar">
+            <span class="credit-version">GIF Editor v2.0.0</span>
+            <span class="credit-separator">·</span>
+            <span class="credit-author">Developed by <strong>Hanmanjun</strong></span>
+            <span class="credit-separator">·</span>
+            <span class="credit-org">IMCgames</span>
+            <span class="credit-separator">·</span>
+            <a href="mailto:hanaura@gmail.com" class="credit-link">hanaura@gmail.com</a>
+        </div>
+    </div>
+
+    <!-- Tag Modal -->
+    <div id="tag-modal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>태그 생성</h3>
+                <button id="tag-modal-close" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-info" id="tag-modal-info"></div>
+                <label class="modal-label">태그 이름</label>
+                <input type="text" id="tag-name-input" class="modal-input" placeholder="태그 이름 입력">
+                <label class="modal-label">프리셋</label>
+                <div id="tag-presets" class="tag-presets">
+                    <button class="tag-preset-btn" data-name="idle">idle</button>
+                    <button class="tag-preset-btn" data-name="attack">attack</button>
+                    <button class="tag-preset-btn" data-name="run">run</button>
+                    <button class="tag-preset-btn" data-name="walk">walk</button>
+                    <button class="tag-preset-btn" data-name="die">die</button>
+                    <button class="tag-preset-btn" data-name="hit">hit</button>
+                    <button class="tag-preset-btn" data-name="cast">cast</button>
+                    <button class="tag-preset-btn" data-name="jump">jump</button>
+                    <button class="tag-preset-btn" data-name="skill">skill</button>
+                    <button class="tag-preset-btn" data-name="dash">dash</button>
+                    <button class="tag-preset-btn" data-name="guard">guard</button>
+                    <button class="tag-preset-btn" data-name="stun">stun</button>
+                </div>
+                <label class="modal-label">색상</label>
+                <div id="tag-colors" class="tag-colors">
+                    <button class="tag-color-btn selected" data-color="#4fc3f7" style="background:#4fc3f7;"></button>
+                    <button class="tag-color-btn" data-color="#81c784" style="background:#81c784;"></button>
+                    <button class="tag-color-btn" data-color="#ffb74d" style="background:#ffb74d;"></button>
+                    <button class="tag-color-btn" data-color="#e57373" style="background:#e57373;"></button>
+                    <button class="tag-color-btn" data-color="#ba68c8" style="background:#ba68c8;"></button>
+                    <button class="tag-color-btn" data-color="#fff176" style="background:#fff176;"></button>
+                    <button class="tag-color-btn" data-color="#4dd0e1" style="background:#4dd0e1;"></button>
+                    <button class="tag-color-btn" data-color="#f06292" style="background:#f06292;"></button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="tag-modal-cancel" class="toolbar-btn">취소</button>
+                <button id="tag-modal-confirm" class="toolbar-btn accent">생성</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="file-input" accept=".gif" style="display:none;">
+    <input type="file" id="file-input-append" accept=".gif" multiple style="display:none;">
+
+    <script src="lib/omggif.js"></script>
+    <script src="aseprite-encoder.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
