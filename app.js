@@ -366,10 +366,41 @@
             item.dataset.index = i;
             item.style.animationDelay = `${Math.min(i * 20, 300)}ms`;
 
+            // Find tag for this frame
+            const tag = state.tags.find(t => i >= t.from && i <= t.to);
+            if (tag) {
+                // Determine position in tag
+                if (i === tag.from && i === tag.to) {
+                    item.classList.add('tag-start', 'tag-end');
+                } else if (i === tag.from) {
+                    item.classList.add('tag-start');
+                } else if (i === tag.to) {
+                    item.classList.add('tag-end');
+                } else {
+                    item.classList.add('tag-mid');
+                }
+
+                // Color indicator bar
+                const indicator = document.createElement('div');
+                indicator.className = 'tag-indicator';
+                indicator.style.backgroundColor = tag.color;
+                item.appendChild(indicator);
+
+                // Tag label on first frame
+                if (i === tag.from) {
+                    const label = document.createElement('span');
+                    label.className = 'tag-label';
+                    label.style.backgroundColor = tag.color;
+                    label.textContent = `${tag.name} (${tag.from + 1}~${tag.to + 1})`;
+                    item.appendChild(label);
+                }
+            }
+
             // Number
             const numEl = document.createElement('span');
             numEl.className = 'frame-number';
             numEl.textContent = i + 1;
+            if (tag) numEl.style.color = tag.color;
 
             // Thumbnail
             const thumbEl = document.createElement('div');

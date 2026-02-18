@@ -56,6 +56,13 @@
                     </svg>
                     빈 프레임
                 </button>
+                <button id="btn-create-tag" class="toolbar-btn" disabled title="선택한 프레임에 태그 생성">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+                        <line x1="7" y1="7" x2="7.01" y2="7" />
+                    </svg>
+                    태그
+                </button>
                 <div class="toolbar-separator"></div>
                 <button id="btn-select-all" class="toolbar-btn" disabled title="전체 선택 (Ctrl+A)">전체 선택</button>
                 <button id="btn-select-odd" class="toolbar-btn" disabled title="홀수 프레임만 선택">홀수 선택</button>
@@ -179,14 +186,6 @@
                 <span id="frame-indicator" class="frame-indicator">- / -</span>
             </div>
             <div class="bottom-right">
-                <button id="btn-create-tag" class="toolbar-btn" disabled title="선택한 프레임에 태그 생성">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
-                        <line x1="7" y1="7" x2="7.01" y2="7" />
-                    </svg>
-                    태그
-                </button>
-                <div class="toolbar-separator"></div>
                 <button id="btn-download" class="toolbar-btn accent" disabled title="편집된 GIF 다운로드">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

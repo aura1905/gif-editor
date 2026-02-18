@@ -389,11 +389,58 @@ body {
     align-items: center;
     gap: 8px;
     padding: 6px 8px;
+    padding-left: 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all var(--transition);
     user-select: none;
     border: 1px solid transparent;
+    position: relative;
+}
+
+/* Tag color bar on frame items */
+.frame-item .tag-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 2px 0 0 2px;
+}
+
+/* Tag start: show label above the indicator */
+.frame-item .tag-label {
+    position: absolute;
+    left: 8px;
+    top: -10px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 3px;
+    z-index: 2;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+/* First frame in tag group: slight top padding for label */
+.frame-item.tag-start {
+    margin-top: 14px;
+}
+
+/* Tag group visual connection */
+.frame-item.tag-mid .tag-indicator,
+.frame-item.tag-end .tag-indicator {
+    border-radius: 0;
+}
+
+.frame-item.tag-start .tag-indicator {
+    border-radius: 2px 0 0 0;
+}
+
+.frame-item.tag-end .tag-indicator {
+    border-radius: 0 0 0 2px;
 }
 
 .frame-item:hover {
