@@ -197,6 +197,7 @@
     function handleFileSelect(e) {
         const file = e.target.files[0];
         if (file) loadGifFile(file);
+        e.target.value = '';
     }
 
     function handleDrop(e) {
