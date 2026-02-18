@@ -86,6 +86,7 @@ body {
 .app-logo {
     color: var(--accent);
     flex-shrink: 0;
+    display: block;
 }
 
 .app-title {
