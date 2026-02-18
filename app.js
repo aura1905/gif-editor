@@ -7,22 +7,30 @@
     'use strict';
 
     // ==============================
-    // State
+    // State (Multi-Document)
     // ==============================
-    const state = {
-        frames: [],           // { imageData, delay, canvas } 배열
-        selectedFrames: new Set(),
-        currentFrame: 0,
-        originalWidth: 0,
-        originalHeight: 0,
-        outputWidth: 0,
-        outputHeight: 0,
-        playing: false,
-        playTimer: null,
-        fileName: 'edited.gif',
-        gifBuffer: null,      // 원본 GIF 바이너리
-        tags: []              // { name, from, to, color }
-    };
+    const documents = []; // 각 문서 = 독립적인 state 객체
+    let activeDocIndex = -1;
+
+    function createDocState(name) {
+        return {
+            frames: [],
+            selectedFrames: new Set(),
+            currentFrame: 0,
+            originalWidth: 0,
+            originalHeight: 0,
+            outputWidth: 0,
+            outputHeight: 0,
+            playing: false,
+            playTimer: null,
+            fileName: name || 'edited.gif',
+            gifBuffer: null,
+            tags: []
+        };
+    }
+
+    // Active document shortcut — 'state' 변수는 항상 현재 활성 문서를 가리킴
+    let state = createDocState('untitled');
 
     // ==============================
     // DOM References
@@ -71,7 +79,9 @@
         tagModalInfo: $('tag-modal-info'),
         tagNameInput: $('tag-name-input'),
         tagPresets: $('tag-presets'),
-        tagColors: $('tag-colors')
+        tagColors: $('tag-colors'),
+        // Tab bar
+        tabBarEl: $('tab-bar')
     };
 
     // ==============================
@@ -199,7 +209,13 @@
     }
 
     function loadGifFile(file) {
-        state.fileName = file.name.replace(/\.gif$/i, '') + '_edited.gif';
+        // Create a new document tab
+        const docName = file.name.replace(/\.gif$/i, '');
+        const newDoc = createDocState(docName + '_edited.gif');
+        newDoc._tabName = docName;
+        documents.push(newDoc);
+        activeDocIndex = documents.length - 1;
+        state = documents[activeDocIndex];
 
         const reader = new FileReader();
         reader.onload = function (e) {
@@ -207,9 +223,21 @@
                 const buffer = new Uint8Array(e.target.result);
                 state.gifBuffer = buffer;
                 parseGif(buffer);
+                renderTabs();
                 showToast(`${file.name} 로드 완료 (${state.frames.length}프레임)`, 'success');
             } catch (err) {
                 showToast('GIF 파싱 실패: ' + err.message, 'error');
+                // Remove failed doc
+                documents.pop();
+                if (documents.length > 0) {
+                    activeDocIndex = documents.length - 1;
+                    state = documents[activeDocIndex];
+                    restoreDocState();
+                } else {
+                    activeDocIndex = -1;
+                    state = createDocState('untitled');
+                }
+                renderTabs();
                 console.error(err);
             }
         };
@@ -919,6 +947,103 @@
                     duplicateSelectedFrames();
                 }
                 break;
+        }
+    }
+
+    // ==============================
+    // Tab Management
+    // ==============================
+    function renderTabs() {
+        dom.tabBarEl.innerHTML = '';
+        documents.forEach((doc, i) => {
+            const tab = document.createElement('div');
+            tab.className = 'tab-item' + (i === activeDocIndex ? ' active' : '');
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'tab-name';
+            nameSpan.textContent = doc._tabName || doc.fileName;
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'tab-close';
+            closeBtn.textContent = '×';
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeDoc(i);
+            });
+
+            tab.appendChild(nameSpan);
+            tab.appendChild(closeBtn);
+            tab.addEventListener('click', () => switchToDoc(i));
+            dom.tabBarEl.appendChild(tab);
+        });
+    }
+
+    function switchToDoc(index) {
+        if (index === activeDocIndex || index < 0 || index >= documents.length) return;
+
+        // Stop playback on current doc
+        stopPlay();
+
+        activeDocIndex = index;
+        state = documents[index];
+
+        restoreDocState();
+        renderTabs();
+    }
+
+    function closeDoc(index) {
+        if (index < 0 || index >= documents.length) return;
+
+        // Stop playback
+        if (documents[index].playTimer) {
+            clearTimeout(documents[index].playTimer);
+        }
+
+        documents.splice(index, 1);
+
+        if (documents.length === 0) {
+            // No docs left — reset to empty state
+            activeDocIndex = -1;
+            state = createDocState('untitled');
+            dom.dropZone.style.display = 'flex';
+            dom.canvasContainer.style.display = 'none';
+            dom.frameList.innerHTML = '';
+            dom.tagBar.innerHTML = '';
+            dom.frameCount.textContent = '0개';
+            dom.frameIndicator.textContent = '- / -';
+            dom.progressFill.style.width = '0%';
+            enableControls(false);
+        } else {
+            // Switch to the closest remaining tab
+            if (activeDocIndex >= documents.length) {
+                activeDocIndex = documents.length - 1;
+            } else if (activeDocIndex > index) {
+                activeDocIndex--;
+            } else if (activeDocIndex === index) {
+                activeDocIndex = Math.min(index, documents.length - 1);
+            }
+            state = documents[activeDocIndex];
+            restoreDocState();
+        }
+
+        renderTabs();
+    }
+
+    function restoreDocState() {
+        // Restore the full UI from the active document's state
+        if (state.frames.length > 0) {
+            dom.dropZone.style.display = 'none';
+            dom.canvasContainer.style.display = 'flex';
+            enableControls(true);
+            renderFrameList();
+            renderTagBar();
+            showFrame(state.currentFrame);
+        } else {
+            dom.dropZone.style.display = 'flex';
+            dom.canvasContainer.style.display = 'none';
+            dom.frameList.innerHTML = '';
+            dom.tagBar.innerHTML = '';
+            enableControls(false);
         }
     }
 
