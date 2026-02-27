@@ -56,6 +56,11 @@
     let lastDrawPos = null; // { x, y } for Bresenham line interpolation
     let palette = [];
 
+    // Undo/Redo state
+    const UNDO_MAX = 50;
+    let undoStack = []; // { frameIndex, imageData }
+    let redoStack = [];
+
     // ==============================
     // DOM References
     // ==============================
@@ -1049,6 +1054,9 @@
         // Handle Ctrl+ shortcuts first (case-insensitive)
         if (e.ctrlKey || e.metaKey) {
             const k = e.key.toLowerCase();
+            if (k === 'z' && e.shiftKey) { e.preventDefault(); redo(); return; }
+            if (k === 'z') { e.preventDefault(); undo(); return; }
+            if (k === 'y') { e.preventDefault(); redo(); return; }
             if (k === 'a') { e.preventDefault(); selectAllFrames(); return; }
             if (k === 'c') { e.preventDefault(); copyFramesToClipboard(); return; }
             if (k === 'v') { e.preventDefault(); pasteFramesFromClipboard(); return; }
@@ -1148,6 +1156,10 @@
 
         // Stop playback on current doc
         stopPlay();
+
+        // 문서 전환 시 undo/redo 초기화
+        undoStack = [];
+        redoStack = [];
 
         activeDocIndex = index;
         state = documents[index];
@@ -1707,6 +1719,58 @@
     // ==============================
     // Drawing Tools
     // ==============================
+
+    // Undo/Redo
+    function saveUndoState(frameIndex) {
+        const frame = state.frames[frameIndex];
+        if (!frame) return;
+        const copy = frame.canvas.getContext('2d').getImageData(0, 0, frame.canvas.width, frame.canvas.height);
+        undoStack.push({ frameIndex, imageData: copy });
+        if (undoStack.length > UNDO_MAX) undoStack.shift();
+        redoStack = []; // 새 동작 시 redo 초기화
+    }
+
+    function undo() {
+        if (undoStack.length === 0) { showToast('되돌릴 작업이 없습니다', 'info'); return; }
+        const entry = undoStack.pop();
+        const frame = state.frames[entry.frameIndex];
+        if (!frame) return;
+
+        // 현재 상태를 redo에 저장
+        const current = frame.canvas.getContext('2d').getImageData(0, 0, frame.canvas.width, frame.canvas.height);
+        redoStack.push({ frameIndex: entry.frameIndex, imageData: current });
+
+        // 이전 상태 복원
+        const ctx = frame.canvas.getContext('2d');
+        ctx.putImageData(entry.imageData, 0, 0);
+        frame.imageData = entry.imageData;
+
+        // 해당 프레임으로 이동 및 화면 갱신
+        state.currentFrame = entry.frameIndex;
+        showFrame(state.currentFrame);
+        updateFrameThumbnail(entry.frameIndex);
+    }
+
+    function redo() {
+        if (redoStack.length === 0) { showToast('다시 실행할 작업이 없습니다', 'info'); return; }
+        const entry = redoStack.pop();
+        const frame = state.frames[entry.frameIndex];
+        if (!frame) return;
+
+        // 현재 상태를 undo에 저장
+        const current = frame.canvas.getContext('2d').getImageData(0, 0, frame.canvas.width, frame.canvas.height);
+        undoStack.push({ frameIndex: entry.frameIndex, imageData: current });
+
+        // redo 상태 복원
+        const ctx = frame.canvas.getContext('2d');
+        ctx.putImageData(entry.imageData, 0, 0);
+        frame.imageData = entry.imageData;
+
+        state.currentFrame = entry.frameIndex;
+        showFrame(state.currentFrame);
+        updateFrameThumbnail(entry.frameIndex);
+    }
+
     // Brush overlay canvas (pixel-perfect cursor)
     let cursorOverlay = null;
 
@@ -1932,6 +1996,9 @@
     function onCanvasMouseDown(e) {
         if (currentTool === 'none' || state.frames.length === 0) return;
         if (e.button !== 0) return; // Left click only
+
+        // 그리기 전 현재 상태를 undo 스택에 저장
+        saveUndoState(state.currentFrame);
 
         isDrawing = true;
         const pos = getFramePixelCoords(e);
