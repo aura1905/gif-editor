@@ -342,7 +342,7 @@
         const compositeCanvas = document.createElement('canvas');
         compositeCanvas.width = w;
         compositeCanvas.height = h;
-        const compositeCtx = compositeCanvas.getContext('2d');
+        const compositeCtx = compositeCanvas.getContext('2d', { willReadFrequently: true });
 
         // Previous frame data for disposal method 3 (restore to previous)
         let previousImageData = null;
