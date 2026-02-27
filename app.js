@@ -35,6 +35,14 @@
     // Cross-tab frame clipboard
     let frameClipboard = []; // { imageData, delay, width, height }
 
+    // Drawing tool state
+    let currentTool = 'none'; // 'none' | 'pencil' | 'eraser'
+    let brushSize = 1;
+    let brushColor = '#000000';
+    let isDrawing = false;
+    let lastDrawPos = null; // { x, y } for Bresenham line interpolation
+    let palette = [];
+
     // ==============================
     // DOM References
     // ==============================
@@ -84,7 +92,14 @@
         tagPresets: $('tag-presets'),
         tagColors: $('tag-colors'),
         // Tab bar
-        tabBarEl: $('tab-bar')
+        tabBarEl: $('tab-bar'),
+        // Drawing tools
+        btnPencil: $('btn-pencil'),
+        btnEraser: $('btn-eraser'),
+        inputBrushSize: $('input-brush-size'),
+        paletteBar: $('palette-bar'),
+        currentColor: $('current-color'),
+        paletteSwatches: $('palette-swatches')
     };
 
     // ==============================
@@ -203,6 +218,33 @@
 
         // v2: Aseprite export
         dom.btnExportAse.addEventListener('click', exportAseprite);
+
+        // Drawing tools
+        dom.btnPencil.addEventListener('click', () => setTool(currentTool === 'pencil' ? 'none' : 'pencil'));
+        dom.btnEraser.addEventListener('click', () => setTool(currentTool === 'eraser' ? 'none' : 'eraser'));
+        dom.inputBrushSize.addEventListener('change', () => {
+            brushSize = Math.max(1, Math.min(32, parseInt(dom.inputBrushSize.value) || 1));
+            dom.inputBrushSize.value = brushSize;
+        });
+
+        // Canvas drawing events
+        dom.previewCanvas.addEventListener('mousedown', onCanvasMouseDown);
+        dom.previewCanvas.addEventListener('mousemove', onCanvasMouseMove);
+        dom.previewCanvas.addEventListener('mouseup', onCanvasMouseUp);
+        dom.previewCanvas.addEventListener('mouseleave', onCanvasMouseUp);
+        dom.previewCanvas.addEventListener('contextmenu', e => {
+            if (currentTool !== 'none') e.preventDefault();
+        });
+
+        // Palette swatch click
+        dom.paletteSwatches.addEventListener('click', (e) => {
+            const swatch = e.target.closest('.palette-swatch');
+            if (!swatch) return;
+            brushColor = swatch.dataset.color;
+            dom.currentColor.style.background = brushColor;
+            dom.paletteSwatches.querySelectorAll('.palette-swatch').forEach(s => s.classList.remove('selected'));
+            swatch.classList.add('selected');
+        });
 
         // Keyboard shortcuts
         document.addEventListener('keydown', handleKeyboard);
@@ -366,6 +408,7 @@
         renderFrameList();
         showFrame(0);
         updateInfo();
+        extractPalette();
     }
 
     // ==============================
@@ -984,6 +1027,14 @@
             case 'Delete':
                 deleteSelectedFrames();
                 break;
+            case 'p':
+            case 'P':
+                setTool(currentTool === 'pencil' ? 'none' : 'pencil');
+                break;
+            case 'e':
+            case 'E':
+                setTool(currentTool === 'eraser' ? 'none' : 'eraser');
+                break;
             case 'ArrowLeft':
                 e.preventDefault();
                 if (state.currentFrame > 0) {
@@ -1489,6 +1540,189 @@
         dom.btnBlank.disabled = !enabled;
         dom.btnCreateTag.disabled = !enabled;
         dom.btnExportAse.disabled = !enabled;
+        dom.btnPencil.disabled = !enabled;
+        dom.btnEraser.disabled = !enabled;
+        dom.inputBrushSize.disabled = !enabled;
+    }
+
+    // ==============================
+    // Drawing Tools
+    // ==============================
+    function setTool(tool) {
+        currentTool = tool;
+        dom.btnPencil.classList.toggle('tool-active', tool === 'pencil');
+        dom.btnEraser.classList.toggle('tool-active', tool === 'eraser');
+        dom.previewCanvas.style.cursor = tool === 'none' ? 'default' : 'crosshair';
+
+        // Show/hide palette bar
+        if (dom.paletteBar) {
+            dom.paletteBar.style.display = (tool === 'pencil') ? 'flex' : 'none';
+        }
+    }
+
+    function extractPalette() {
+        const colorSet = new Set();
+        const maxSample = Math.min(state.frames.length, 10); // Sample up to 10 frames
+        const step = Math.max(1, Math.floor(state.frames.length / maxSample));
+
+        for (let fi = 0; fi < state.frames.length; fi += step) {
+            const data = state.frames[fi].imageData.data;
+            // Sample every 4th pixel for performance
+            for (let i = 0; i < data.length; i += 16) {
+                const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                if (a < 128) continue; // Skip transparent
+                // Quantize to reduce similar colors (round to nearest 8)
+                const qr = (r >> 3) << 3;
+                const qg = (g >> 3) << 3;
+                const qb = (b >> 3) << 3;
+                colorSet.add(`${qr},${qg},${qb}`);
+            }
+        }
+
+        // Convert to hex and limit
+        palette = [];
+        for (const c of colorSet) {
+            if (palette.length >= 128) break;
+            const [r, g, b] = c.split(',').map(Number);
+            const hex = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            palette.push(hex);
+        }
+
+        // Sort by luminance
+        palette.sort((a, b) => {
+            const lumA = colorLuminance(a);
+            const lumB = colorLuminance(b);
+            return lumA - lumB;
+        });
+
+        renderPalette();
+    }
+
+    function colorLuminance(hex) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+
+    function renderPalette() {
+        dom.paletteSwatches.innerHTML = '';
+
+        palette.forEach((color, i) => {
+            const swatch = document.createElement('div');
+            swatch.className = 'palette-swatch';
+            if (i === 0) {
+                swatch.classList.add('selected');
+                brushColor = color;
+                dom.currentColor.style.background = color;
+            }
+            swatch.style.background = color;
+            swatch.dataset.color = color;
+            swatch.title = color;
+            dom.paletteSwatches.appendChild(swatch);
+        });
+    }
+
+    function getFramePixelCoords(e) {
+        const canvas = dom.previewCanvas;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = state.originalWidth / rect.width;
+        const scaleY = state.originalHeight / rect.height;
+        const x = Math.floor((e.clientX - rect.left) * scaleX);
+        const y = Math.floor((e.clientY - rect.top) * scaleY);
+        return { x, y };
+    }
+
+    function drawPixel(frame, x, y) {
+        const ctx = frame.canvas.getContext('2d');
+        if (currentTool === 'pencil') {
+            ctx.fillStyle = brushColor;
+            ctx.fillRect(x, y, brushSize, brushSize);
+        } else if (currentTool === 'eraser') {
+            ctx.clearRect(x, y, brushSize, brushSize);
+        }
+    }
+
+    function drawLine(frame, x0, y0, x1, y1) {
+        // Bresenham's line algorithm for smooth strokes
+        const dx = Math.abs(x1 - x0);
+        const dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+
+        while (true) {
+            drawPixel(frame, x0, y0);
+            if (x0 === x1 && y0 === y1) break;
+            const e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x0 += sx; }
+            if (e2 < dx) { err += dx; y0 += sy; }
+        }
+    }
+
+    function finishDrawStroke() {
+        if (!isDrawing) return;
+        isDrawing = false;
+        lastDrawPos = null;
+
+        // Update frame imageData and thumbnail
+        const frame = state.frames[state.currentFrame];
+        const ctx = frame.canvas.getContext('2d');
+        frame.imageData = ctx.getImageData(0, 0, frame.canvas.width, frame.canvas.height);
+
+        // Refresh the thumbnail in frame list
+        updateFrameThumbnail(state.currentFrame);
+    }
+
+    function updateFrameThumbnail(index) {
+        const item = dom.frameList.querySelector(`.frame-item[data-index="${index}"]`);
+        if (!item) return;
+        const thumbCanvas = item.querySelector('.frame-thumb canvas');
+        if (!thumbCanvas) return;
+
+        const frame = state.frames[index];
+        const tCtx = thumbCanvas.getContext('2d');
+        tCtx.clearRect(0, 0, 36, 36);
+        const srcW = frame.canvas.width;
+        const srcH = frame.canvas.height;
+        const scale = Math.min(36 / srcW, 36 / srcH);
+        const dw = srcW * scale;
+        const dh = srcH * scale;
+        tCtx.imageSmoothingEnabled = false;
+        tCtx.drawImage(frame.canvas, (36 - dw) / 2, (36 - dh) / 2, dw, dh);
+    }
+
+    function onCanvasMouseDown(e) {
+        if (currentTool === 'none' || state.frames.length === 0) return;
+        if (e.button !== 0) return; // Left click only
+
+        isDrawing = true;
+        const pos = getFramePixelCoords(e);
+        lastDrawPos = pos;
+
+        const frame = state.frames[state.currentFrame];
+        drawPixel(frame, pos.x, pos.y);
+        showFrame(state.currentFrame);
+    }
+
+    function onCanvasMouseMove(e) {
+        if (!isDrawing || currentTool === 'none') return;
+
+        const pos = getFramePixelCoords(e);
+        const frame = state.frames[state.currentFrame];
+
+        if (lastDrawPos) {
+            drawLine(frame, lastDrawPos.x, lastDrawPos.y, pos.x, pos.y);
+        } else {
+            drawPixel(frame, pos.x, pos.y);
+        }
+
+        lastDrawPos = pos;
+        showFrame(state.currentFrame);
+    }
+
+    function onCanvasMouseUp(e) {
+        finishDrawStroke();
     }
 
     function showToast(message, type = 'info') {

@@ -77,6 +77,24 @@
                     태그
                 </button>
                 <div class="toolbar-separator"></div>
+                <button id="btn-pencil" class="toolbar-btn" disabled title="연필 도구 (P)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                    </svg>
+                    연필
+                </button>
+                <button id="btn-eraser" class="toolbar-btn" disabled title="지우개 도구 (E)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 20H7L3 16a1 1 0 0 1 0-1.41l9.59-9.59a2 2 0 0 1 2.83 0L20.83 10.41a2 2 0 0 1 0 2.83L14 20" />
+                        <line x1="18" y1="13" x2="11" y2="6" />
+                    </svg>
+                    지우개
+                </button>
+                <div class="toolbar-group">
+                    <label class="toolbar-label">브러시</label>
+                    <input type="number" id="input-brush-size" class="toolbar-input" value="1" min="1" max="32" disabled style="width:48px;">
+                </div>
+                <div class="toolbar-separator"></div>
                 <button id="btn-select-all" class="toolbar-btn" disabled title="전체 선택 (Ctrl+A)">전체 선택</button>
                 <button id="btn-select-odd" class="toolbar-btn" disabled title="홀수 프레임만 선택">홀수 선택</button>
                 <button id="btn-select-even" class="toolbar-btn" disabled title="짝수 프레임만 선택">짝수 선택</button>
@@ -172,6 +190,10 @@
                     <div id="canvas-info">
                         <span id="info-size"></span>
                         <span id="info-frame"></span>
+                    </div>
+                    <div id="palette-bar" style="display:none;">
+                        <div id="current-color" title="현재 색상"></div>
+                        <div id="palette-swatches"></div>
                     </div>
                 </div>
             </section>
