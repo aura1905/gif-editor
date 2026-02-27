@@ -118,7 +118,10 @@
         inputBrushSize: $('input-brush-size'),
         paletteBar: $('palette-bar'),
         currentColor: $('current-color'),
-        paletteSwatches: $('palette-swatches')
+        paletteSwatches: $('palette-swatches'),
+        // Shortcut help
+        shortcutModal: $('shortcut-modal'),
+        shortcutModalClose: $('shortcut-modal-close')
     };
 
     // ==============================
@@ -276,6 +279,12 @@
             dom.currentColor.style.background = brushColor;
             dom.paletteSwatches.querySelectorAll('.palette-swatch').forEach(s => s.classList.remove('selected'));
             swatch.classList.add('selected');
+        });
+
+        // Shortcut help modal
+        dom.shortcutModalClose.addEventListener('click', closeShortcutModal);
+        dom.shortcutModal.addEventListener('click', (e) => {
+            if (e.target === dom.shortcutModal) closeShortcutModal();
         });
 
         // Keyboard shortcuts
@@ -1046,6 +1055,19 @@
     // Keyboard Shortcuts
     // ==============================
     function handleKeyboard(e) {
+        // ? 키는 GIF 로드 여부와 무관하게 동작
+        if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            e.preventDefault();
+            toggleShortcutModal();
+            return;
+        }
+        // Escape로 단축키 모달 닫기
+        if (e.key === 'Escape' && dom.shortcutModal.style.display !== 'none') {
+            closeShortcutModal();
+            return;
+        }
+
         if (state.frames.length === 0) return;
 
         // Ignore if typing in input
@@ -1074,8 +1096,8 @@
             case 'Delete':
                 deleteSelectedFrames();
                 break;
-            case 'p':
-            case 'P':
+            case 'b':
+            case 'B':
                 setTool(currentTool === 'pencil' ? 'none' : 'pencil');
                 break;
             case 'e':
@@ -2030,6 +2052,19 @@
 
     function onCanvasMouseUp(e) {
         finishDrawStroke();
+    }
+
+    // Shortcut Help Modal
+    function toggleShortcutModal() {
+        if (dom.shortcutModal.style.display === 'none') {
+            dom.shortcutModal.style.display = 'flex';
+        } else {
+            dom.shortcutModal.style.display = 'none';
+        }
+    }
+
+    function closeShortcutModal() {
+        dom.shortcutModal.style.display = 'none';
     }
 
     function showToast(message, type = 'info') {

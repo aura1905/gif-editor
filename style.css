@@ -1131,3 +1131,51 @@ body {
     border: 2px solid #fff;
     box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
 }
+
+/* Shortcut Help Table */
+.shortcut-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.shortcut-table th {
+    text-align: left;
+    padding: 6px 8px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-default);
+}
+
+.shortcut-table td {
+    padding: 5px 8px;
+    color: var(--text-primary);
+}
+
+.shortcut-table tr:hover td {
+    background: var(--bg-hover);
+}
+
+.shortcut-table .shortcut-section td {
+    padding: 10px 8px 4px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    background: none;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.shortcut-table kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-family: 'Inter', monospace;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-default);
+    border-radius: 3px;
+    color: var(--text-primary);
+    min-width: 18px;
+    text-align: center;
+}

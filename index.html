@@ -77,7 +77,7 @@
                     태그
                 </button>
                 <div class="toolbar-separator"></div>
-                <button id="btn-pencil" class="toolbar-btn" disabled title="연필 도구 (P)">
+                <button id="btn-pencil" class="toolbar-btn" disabled title="연필 도구 (B)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
                     </svg>
@@ -290,6 +290,47 @@
             <div class="modal-footer">
                 <button id="tag-modal-cancel" class="toolbar-btn">취소</button>
                 <button id="tag-modal-confirm" class="toolbar-btn accent">생성</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shortcut Help Modal -->
+    <div id="shortcut-modal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h3>단축키 목록</h3>
+                <button id="shortcut-modal-close" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:12px 16px;">
+                <table class="shortcut-table">
+                    <thead><tr><th>기능</th><th>단축키</th></tr></thead>
+                    <tbody>
+                        <tr class="shortcut-section"><td colspan="2">도구</td></tr>
+                        <tr><td>연필 (브러시)</td><td><kbd>B</kbd></td></tr>
+                        <tr><td>지우개</td><td><kbd>E</kbd></td></tr>
+                        <tr><td>브러시 크기 줄이기</td><td><kbd>[</kbd></td></tr>
+                        <tr><td>브러시 크기 늘리기</td><td><kbd>]</kbd></td></tr>
+                        <tr><td>되돌리기 (Undo)</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td></tr>
+                        <tr><td>다시 실행 (Redo)</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td></tr>
+                        <tr class="shortcut-section"><td colspan="2">보기</td></tr>
+                        <tr><td>줌 인</td><td><kbd>Ctrl</kbd>+<kbd>=</kbd> / 휠 위</td></tr>
+                        <tr><td>줌 아웃</td><td><kbd>Ctrl</kbd>+<kbd>-</kbd> / 휠 아래</td></tr>
+                        <tr><td>줌 초기화 (100%)</td><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td></tr>
+                        <tr><td>캔버스 이동 (팬)</td><td>휠 클릭 + 드래그</td></tr>
+                        <tr class="shortcut-section"><td colspan="2">프레임</td></tr>
+                        <tr><td>재생 / 일시정지</td><td><kbd>Space</kbd></td></tr>
+                        <tr><td>이전 프레임</td><td><kbd>←</kbd></td></tr>
+                        <tr><td>다음 프레임</td><td><kbd>→</kbd></td></tr>
+                        <tr><td>프레임 삭제</td><td><kbd>Delete</kbd></td></tr>
+                        <tr class="shortcut-section"><td colspan="2">편집</td></tr>
+                        <tr><td>전체 선택</td><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td></tr>
+                        <tr><td>프레임 복사</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
+                        <tr><td>프레임 붙여넣기</td><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td></tr>
+                        <tr><td>프레임 복제</td><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td></tr>
+                        <tr class="shortcut-section"><td colspan="2">기타</td></tr>
+                        <tr><td>단축키 도움말</td><td><kbd>?</kbd></td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
