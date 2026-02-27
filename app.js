@@ -233,8 +233,8 @@
             dom.inputBrushSize.value = brushSize;
         });
 
-        // Canvas zoom (mouse wheel)
-        dom.previewCanvas.addEventListener('wheel', onCanvasWheel, { passive: false });
+        // Canvas zoom (mouse wheel on entire preview area)
+        document.getElementById('preview-area').addEventListener('wheel', onCanvasWheel, { passive: false });
 
         // Canvas drawing events
         dom.previewCanvas.addEventListener('mousedown', onCanvasMouseDown);
