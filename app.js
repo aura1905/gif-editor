@@ -583,6 +583,7 @@
 
         ctx.imageSmoothingEnabled = false;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawCheckerboard(ctx, canvas.width, canvas.height);
         ctx.drawImage(frame.canvas, 0, 0, state.outputWidth, state.outputHeight);
 
         // Apply zoom via CSS width/height
@@ -1052,6 +1053,16 @@
             case 'e':
             case 'E':
                 setTool(currentTool === 'eraser' ? 'none' : 'eraser');
+                break;
+            case '[':
+                brushSize = Math.max(1, brushSize - 1);
+                dom.inputBrushSize.value = brushSize;
+                updateBrushCursor();
+                break;
+            case ']':
+                brushSize = Math.min(32, brushSize + 1);
+                dom.inputBrushSize.value = brushSize;
+                updateBrushCursor();
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
@@ -1564,6 +1575,29 @@
     }
 
     // ==============================
+    // Checkerboard Background
+    // ==============================
+    let checkerPattern = null;
+
+    function drawCheckerboard(ctx, w, h) {
+        if (!checkerPattern) {
+            const size = 8;
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = size * 2;
+            pCanvas.height = size * 2;
+            const pCtx = pCanvas.getContext('2d');
+            pCtx.fillStyle = '#c0c0c0';
+            pCtx.fillRect(0, 0, size * 2, size * 2);
+            pCtx.fillStyle = '#808080';
+            pCtx.fillRect(0, 0, size, size);
+            pCtx.fillRect(size, size, size, size);
+            checkerPattern = ctx.createPattern(pCanvas, 'repeat');
+        }
+        ctx.fillStyle = checkerPattern;
+        ctx.fillRect(0, 0, w, h);
+    }
+
+    // ==============================
     // Zoom
     // ==============================
     function fitZoomToContainer() {
@@ -1591,6 +1625,7 @@
         zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
         applyZoomStyle();
         updateInfo();
+        updateBrushCursor();
     }
 
     function onCanvasWheel(e) {
@@ -1610,12 +1645,42 @@
         currentTool = tool;
         dom.btnPencil.classList.toggle('tool-active', tool === 'pencil');
         dom.btnEraser.classList.toggle('tool-active', tool === 'eraser');
-        dom.previewCanvas.style.cursor = tool === 'none' ? 'default' : 'crosshair';
+
+        if (tool === 'none') {
+            dom.previewCanvas.style.cursor = 'default';
+        } else {
+            updateBrushCursor();
+        }
 
         // Show/hide palette bar
         if (dom.paletteBar) {
             dom.paletteBar.style.display = (tool === 'pencil') ? 'flex' : 'none';
         }
+    }
+
+    function updateBrushCursor() {
+        if (currentTool === 'none') return;
+        const pixelSize = zoomLevel; // 1 pixel = zoomLevel CSS pixels
+        const size = Math.max(brushSize * pixelSize, 3);
+        const cursorSize = Math.ceil(size) + 2; // +2 for border
+        const half = cursorSize / 2;
+
+        // Draw pixel-grid brush cursor
+        const canvas = document.createElement('canvas');
+        canvas.width = cursorSize;
+        canvas.height = cursorSize;
+        const ctx = canvas.getContext('2d');
+
+        // Draw pixel grid squares
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(1, 1, cursorSize - 2, cursorSize - 2);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, cursorSize, cursorSize);
+
+        const url = canvas.toDataURL();
+        dom.previewCanvas.style.cursor = `url(${url}) ${Math.round(half)} ${Math.round(half)}, crosshair`;
     }
 
     function extractPalette() {
