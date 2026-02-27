@@ -77,6 +77,7 @@
         dropZone: $('drop-zone'),
         canvasContainer: $('canvas-container'),
         previewCanvas: $('preview-canvas'),
+        canvasInfo: $('canvas-info'),
         infoSize: $('info-size'),
         infoFrame: $('info-frame'),
         btnPlay: $('btn-play'),
@@ -429,7 +430,8 @@
 
         // Show UI
         dom.dropZone.style.display = 'none';
-        dom.canvasContainer.style.display = 'flex';
+        dom.canvasContainer.style.display = 'block';
+        dom.canvasInfo.style.display = 'flex';
         enableControls(true);
 
         renderFrameList();
@@ -1170,6 +1172,7 @@
             state = createDocState('untitled');
             dom.dropZone.style.display = 'flex';
             dom.canvasContainer.style.display = 'none';
+            dom.canvasInfo.style.display = 'none';
             dom.frameList.innerHTML = '';
             dom.tagBar.innerHTML = '';
             dom.frameCount.textContent = '0개';
@@ -1196,13 +1199,15 @@
         // Restore the full UI from the active document's state
         if (state.frames.length > 0) {
             dom.dropZone.style.display = 'none';
-            dom.canvasContainer.style.display = 'flex';
+            dom.canvasContainer.style.display = 'block';
+            dom.canvasInfo.style.display = 'flex';
             enableControls(true);
             renderFrameList();
             showFrame(state.currentFrame);
         } else {
             dom.dropZone.style.display = 'flex';
             dom.canvasContainer.style.display = 'none';
+            dom.canvasInfo.style.display = 'none';
             dom.frameList.innerHTML = '';
             dom.tagBar.innerHTML = '';
             enableControls(false);
@@ -1257,7 +1262,8 @@
                 state.outputHeight = h;
             }
             dom.dropZone.style.display = 'none';
-            dom.canvasContainer.style.display = 'flex';
+            dom.canvasContainer.style.display = 'block';
+            dom.canvasInfo.style.display = 'flex';
             enableControls(true);
         }
 
@@ -1637,6 +1643,12 @@
         canvas.style.maxWidth = 'none';
         canvas.style.maxHeight = 'none';
         canvas.style.transform = 'none';
+
+        // Add padding so edges can be centered on screen
+        const container = dom.canvasContainer;
+        const padX = Math.max(0, Math.floor(container.clientWidth / 2));
+        const padY = Math.max(0, Math.floor(container.clientHeight / 2));
+        canvas.style.margin = `${padY}px ${padX}px`;
     }
 
     function applyZoom(newZoom) {
@@ -1648,16 +1660,12 @@
 
     function onCanvasWheel(e) {
         if (state.frames.length === 0) return;
-        // Ctrl+Wheel = zoom, plain wheel = scroll
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            if (e.deltaY < 0) {
-                applyZoom(zoomLevel * ZOOM_STEP);
-            } else {
-                applyZoom(zoomLevel / ZOOM_STEP);
-            }
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            applyZoom(zoomLevel * ZOOM_STEP);
+        } else {
+            applyZoom(zoomLevel / ZOOM_STEP);
         }
-        // Without Ctrl: let default scroll behavior handle panning
     }
 
     // ==============================
