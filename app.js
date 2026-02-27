@@ -1634,12 +1634,16 @@
 
     function onCanvasWheel(e) {
         if (state.frames.length === 0) return;
-        e.preventDefault();
-        if (e.deltaY < 0) {
-            applyZoom(zoomLevel * ZOOM_STEP);
-        } else {
-            applyZoom(zoomLevel / ZOOM_STEP);
+        // Ctrl+Wheel = zoom, plain wheel = scroll
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                applyZoom(zoomLevel * ZOOM_STEP);
+            } else {
+                applyZoom(zoomLevel / ZOOM_STEP);
+            }
         }
+        // Without Ctrl: let default scroll behavior handle panning
     }
 
     // ==============================
