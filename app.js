@@ -240,7 +240,10 @@
         dom.previewCanvas.addEventListener('mousedown', onCanvasMouseDown);
         dom.previewCanvas.addEventListener('mousemove', onCanvasMouseMove);
         dom.previewCanvas.addEventListener('mouseup', onCanvasMouseUp);
-        dom.previewCanvas.addEventListener('mouseleave', onCanvasMouseUp);
+        dom.previewCanvas.addEventListener('mouseleave', (e) => {
+            onCanvasMouseUp(e);
+            clearBrushOverlay();
+        });
         dom.previewCanvas.addEventListener('contextmenu', e => {
             if (currentTool !== 'none') e.preventDefault();
         });
@@ -588,6 +591,7 @@
 
         // Apply zoom via CSS width/height
         applyZoomStyle();
+        syncOverlaySize();
 
         updateInfo();
         updateProgress();
@@ -1641,6 +1645,66 @@
     // ==============================
     // Drawing Tools
     // ==============================
+    // Brush overlay canvas (pixel-perfect cursor)
+    let cursorOverlay = null;
+
+    function ensureCursorOverlay() {
+        if (cursorOverlay) return cursorOverlay;
+        cursorOverlay = document.createElement('canvas');
+        cursorOverlay.id = 'cursor-overlay';
+        cursorOverlay.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;image-rendering:pixelated;';
+        dom.canvasContainer.style.position = 'relative';
+        dom.canvasContainer.appendChild(cursorOverlay);
+        return cursorOverlay;
+    }
+
+    function syncOverlaySize() {
+        if (!cursorOverlay) return;
+        const pc = dom.previewCanvas;
+        cursorOverlay.width = pc.width;
+        cursorOverlay.height = pc.height;
+        cursorOverlay.style.width = pc.style.width;
+        cursorOverlay.style.height = pc.style.height;
+        // Match position of preview canvas
+        cursorOverlay.style.left = pc.offsetLeft + 'px';
+        cursorOverlay.style.top = pc.offsetTop + 'px';
+    }
+
+    function drawBrushOverlay(e) {
+        if (currentTool === 'none' || !cursorOverlay) return;
+        const oc = cursorOverlay;
+        const ctx = oc.getContext('2d');
+        ctx.clearRect(0, 0, oc.width, oc.height);
+
+        const rect = dom.previewCanvas.getBoundingClientRect();
+        const scaleX = state.outputWidth / rect.width;
+        const scaleY = state.outputHeight / rect.height;
+        // Pixel coordinate on preview canvas (output resolution)
+        const canvasX = Math.floor((e.clientX - rect.left) * scaleX);
+        const canvasY = Math.floor((e.clientY - rect.top) * scaleY);
+
+        // Brush size in output pixels
+        const brushW = Math.round(brushSize * state.outputWidth / state.originalWidth);
+        const brushH = Math.round(brushSize * state.outputHeight / state.originalHeight);
+        const offsetX = Math.floor(brushW / 2);
+        const offsetY = Math.floor(brushH / 2);
+        const px = canvasX - offsetX;
+        const py = canvasY - offsetY;
+
+        // Draw outline
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px + 0.5, py + 0.5, brushW - 1, brushH - 1);
+        ctx.strokeStyle = '#000';
+        ctx.strokeRect(px - 0.5, py - 0.5, brushW + 1, brushH + 1);
+    }
+
+    function clearBrushOverlay() {
+        if (!cursorOverlay) return;
+        const ctx = cursorOverlay.getContext('2d');
+        ctx.clearRect(0, 0, cursorOverlay.width, cursorOverlay.height);
+    }
+
     function setTool(tool) {
         currentTool = tool;
         dom.btnPencil.classList.toggle('tool-active', tool === 'pencil');
@@ -1648,8 +1712,11 @@
 
         if (tool === 'none') {
             dom.previewCanvas.style.cursor = 'default';
+            clearBrushOverlay();
         } else {
-            updateBrushCursor();
+            ensureCursorOverlay();
+            syncOverlaySize();
+            dom.previewCanvas.style.cursor = 'none';
         }
 
         // Show/hide palette bar
@@ -1659,28 +1726,10 @@
     }
 
     function updateBrushCursor() {
-        if (currentTool === 'none') return;
-        const pixelSize = zoomLevel; // 1 pixel = zoomLevel CSS pixels
-        const size = Math.max(brushSize * pixelSize, 3);
-        const cursorSize = Math.ceil(size) + 2; // +2 for border
-        const half = cursorSize / 2;
-
-        // Draw pixel-grid brush cursor
-        const canvas = document.createElement('canvas');
-        canvas.width = cursorSize;
-        canvas.height = cursorSize;
-        const ctx = canvas.getContext('2d');
-
-        // Draw pixel grid squares
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(1, 1, cursorSize - 2, cursorSize - 2);
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, cursorSize, cursorSize);
-
-        const url = canvas.toDataURL();
-        dom.previewCanvas.style.cursor = `url(${url}) ${Math.round(half)} ${Math.round(half)}, crosshair`;
+        // Sync overlay size on zoom/brush change
+        if (currentTool !== 'none' && cursorOverlay) {
+            syncOverlaySize();
+        }
     }
 
     function extractPalette() {
@@ -1832,6 +1881,9 @@
     }
 
     function onCanvasMouseMove(e) {
+        // Always update brush overlay
+        drawBrushOverlay(e);
+
         if (!isDrawing || currentTool === 'none') return;
 
         const pos = getFramePixelCoords(e);
