@@ -416,6 +416,7 @@
         enableControls(true);
 
         renderFrameList();
+        fitZoomToContainer();
         showFrame(0);
         updateInfo();
         extractPalette();
@@ -584,9 +585,8 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(frame.canvas, 0, 0, state.outputWidth, state.outputHeight);
 
-        // Apply zoom via CSS transform
-        canvas.style.transform = `scale(${zoomLevel})`;
-        canvas.style.transformOrigin = 'center center';
+        // Apply zoom via CSS width/height
+        applyZoomStyle();
 
         updateInfo();
         updateProgress();
@@ -1566,10 +1566,30 @@
     // ==============================
     // Zoom
     // ==============================
+    function fitZoomToContainer() {
+        const container = dom.canvasContainer;
+        const padX = 40, padY = 120;
+        const availW = container.clientWidth - padX;
+        const availH = container.clientHeight - padY;
+        if (availW <= 0 || availH <= 0) { zoomLevel = 1; return; }
+        zoomLevel = Math.min(availW / state.outputWidth, availH / state.outputHeight, ZOOM_MAX);
+        zoomLevel = Math.max(zoomLevel, ZOOM_MIN);
+    }
+
+    function applyZoomStyle() {
+        const canvas = dom.previewCanvas;
+        const displayW = Math.round(state.outputWidth * zoomLevel);
+        const displayH = Math.round(state.outputHeight * zoomLevel);
+        canvas.style.width = displayW + 'px';
+        canvas.style.height = displayH + 'px';
+        canvas.style.maxWidth = 'none';
+        canvas.style.maxHeight = 'none';
+        canvas.style.transform = 'none';
+    }
+
     function applyZoom(newZoom) {
         zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
-        dom.previewCanvas.style.transform = `scale(${zoomLevel})`;
-        dom.previewCanvas.style.transformOrigin = 'center center';
+        applyZoomStyle();
         updateInfo();
     }
 
