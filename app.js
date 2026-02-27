@@ -41,6 +41,13 @@
     const ZOOM_MAX = 16;
     const ZOOM_STEP = 1.2; // multiply/divide per step
 
+    // Panning state (middle-click hand tool)
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panScrollLeft = 0;
+    let panScrollTop = 0;
+
     // Drawing tool state
     let currentTool = 'none'; // 'none' | 'pencil' | 'eraser'
     let brushSize = 1;
@@ -243,10 +250,17 @@
         dom.previewCanvas.addEventListener('mouseleave', (e) => {
             onCanvasMouseUp(e);
             clearBrushOverlay();
+            stopPanning();
         });
         dom.previewCanvas.addEventListener('contextmenu', e => {
             if (currentTool !== 'none') e.preventDefault();
         });
+
+        // Middle-click panning (hand tool)
+        const previewArea = document.getElementById('preview-area');
+        previewArea.addEventListener('mousedown', onPanMouseDown);
+        document.addEventListener('mousemove', onPanMouseMove);
+        document.addEventListener('mouseup', onPanMouseUp);
 
         // Palette swatch click
         dom.paletteSwatches.addEventListener('click', (e) => {
@@ -1644,6 +1658,42 @@
             }
         }
         // Without Ctrl: let default scroll behavior handle panning
+    }
+
+    // ==============================
+    // Panning (Middle-click Hand Tool)
+    // ==============================
+    function onPanMouseDown(e) {
+        if (e.button !== 1) return; // Middle click only
+        e.preventDefault();
+        isPanning = true;
+        const container = dom.canvasContainer;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panScrollLeft = container.scrollLeft;
+        panScrollTop = container.scrollTop;
+        dom.previewCanvas.style.cursor = 'grabbing';
+    }
+
+    function onPanMouseMove(e) {
+        if (!isPanning) return;
+        e.preventDefault();
+        const dx = e.clientX - panStartX;
+        const dy = e.clientY - panStartY;
+        dom.canvasContainer.scrollLeft = panScrollLeft - dx;
+        dom.canvasContainer.scrollTop = panScrollTop - dy;
+    }
+
+    function onPanMouseUp(e) {
+        if (!isPanning) return;
+        if (e.button !== 1) return;
+        stopPanning();
+    }
+
+    function stopPanning() {
+        if (!isPanning) return;
+        isPanning = false;
+        dom.previewCanvas.style.cursor = currentTool === 'none' ? 'default' : 'none';
     }
 
     // ==============================
