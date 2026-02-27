@@ -35,6 +35,12 @@
     // Cross-tab frame clipboard
     let frameClipboard = []; // { imageData, delay, width, height }
 
+    // Zoom state
+    let zoomLevel = 1;
+    const ZOOM_MIN = 0.25;
+    const ZOOM_MAX = 16;
+    const ZOOM_STEP = 1.2; // multiply/divide per step
+
     // Drawing tool state
     let currentTool = 'none'; // 'none' | 'pencil' | 'eraser'
     let brushSize = 1;
@@ -227,6 +233,9 @@
             dom.inputBrushSize.value = brushSize;
         });
 
+        // Canvas zoom (mouse wheel)
+        dom.previewCanvas.addEventListener('wheel', onCanvasWheel, { passive: false });
+
         // Canvas drawing events
         dom.previewCanvas.addEventListener('mousedown', onCanvasMouseDown);
         dom.previewCanvas.addEventListener('mousemove', onCanvasMouseMove);
@@ -306,6 +315,7 @@
 
     function parseGif(buffer) {
         stopPlay();
+        zoomLevel = 1;
         state.frames = [];
         state.selectedFrames.clear();
         state.currentFrame = 0;
@@ -574,6 +584,10 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(frame.canvas, 0, 0, state.outputWidth, state.outputHeight);
 
+        // Apply zoom via CSS transform
+        canvas.style.transform = `scale(${zoomLevel})`;
+        canvas.style.transformOrigin = 'center center';
+
         updateInfo();
         updateProgress();
 
@@ -589,7 +603,8 @@
     }
 
     function updateInfo() {
-        dom.infoSize.textContent = `${state.outputWidth} × ${state.outputHeight}`;
+        const zoomPct = Math.round(zoomLevel * 100);
+        dom.infoSize.textContent = `${state.outputWidth} × ${state.outputHeight} (${zoomPct}%)`;
         dom.infoFrame.textContent = `프레임 ${state.currentFrame + 1} / ${state.frames.length}`;
         dom.frameIndicator.textContent = `${state.currentFrame + 1} / ${state.frames.length}`;
     }
@@ -1017,6 +1032,9 @@
             if (k === 'c') { e.preventDefault(); copyFramesToClipboard(); return; }
             if (k === 'v') { e.preventDefault(); pasteFramesFromClipboard(); return; }
             if (k === 'd') { e.preventDefault(); duplicateSelectedFrames(); return; }
+            if (k === '=' || k === '+') { e.preventDefault(); applyZoom(zoomLevel * ZOOM_STEP); return; }
+            if (k === '-') { e.preventDefault(); applyZoom(zoomLevel / ZOOM_STEP); return; }
+            if (k === '0') { e.preventDefault(); applyZoom(1); return; }
         }
 
         switch (e.key) {
@@ -1543,6 +1561,26 @@
         dom.btnPencil.disabled = !enabled;
         dom.btnEraser.disabled = !enabled;
         dom.inputBrushSize.disabled = !enabled;
+    }
+
+    // ==============================
+    // Zoom
+    // ==============================
+    function applyZoom(newZoom) {
+        zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+        dom.previewCanvas.style.transform = `scale(${zoomLevel})`;
+        dom.previewCanvas.style.transformOrigin = 'center center';
+        updateInfo();
+    }
+
+    function onCanvasWheel(e) {
+        if (state.frames.length === 0) return;
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            applyZoom(zoomLevel * ZOOM_STEP);
+        } else {
+            applyZoom(zoomLevel / ZOOM_STEP);
+        }
     }
 
     // ==============================

@@ -596,6 +596,7 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
+    overflow: auto;
 }
 
 #preview-canvas {
@@ -604,6 +605,7 @@ body {
     max-height: calc(100% - 120px);
     border-radius: 4px;
     box-shadow: var(--shadow-lg);
+    transition: transform 80ms ease;
 }
 
 #canvas-info {
