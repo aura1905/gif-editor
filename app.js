@@ -1758,11 +1758,14 @@
 
     function drawPixel(frame, x, y) {
         const ctx = frame.canvas.getContext('2d');
+        const offset = Math.floor(brushSize / 2);
+        const px = x - offset;
+        const py = y - offset;
         if (currentTool === 'pencil') {
             ctx.fillStyle = brushColor;
-            ctx.fillRect(x, y, brushSize, brushSize);
+            ctx.fillRect(px, py, brushSize, brushSize);
         } else if (currentTool === 'eraser') {
-            ctx.clearRect(x, y, brushSize, brushSize);
+            ctx.clearRect(px, py, brushSize, brushSize);
         }
     }
 
