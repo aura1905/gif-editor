@@ -49,7 +49,7 @@
     let panScrollTop = 0;
 
     // Drawing tool state
-    let currentTool = 'none'; // 'none' | 'pencil' | 'eraser'
+    let currentTool = 'none'; // 'none' | 'pencil' | 'eraser' | 'move'
     let brushSize = 1;
     let brushColor = '#000000';
     let isDrawing = false;
@@ -115,6 +115,7 @@
         // Drawing tools
         btnPencil: $('btn-pencil'),
         btnEraser: $('btn-eraser'),
+        btnMove: $('btn-move'),
         inputBrushSize: $('input-brush-size'),
         paletteBar: $('palette-bar'),
         currentColor: $('current-color'),
@@ -244,6 +245,7 @@
         // Drawing tools
         dom.btnPencil.addEventListener('click', () => setTool(currentTool === 'pencil' ? 'none' : 'pencil'));
         dom.btnEraser.addEventListener('click', () => setTool(currentTool === 'eraser' ? 'none' : 'eraser'));
+        dom.btnMove.addEventListener('click', () => setTool(currentTool === 'move' ? 'none' : 'move'));
         dom.inputBrushSize.addEventListener('change', () => {
             brushSize = Math.max(1, Math.min(32, parseInt(dom.inputBrushSize.value) || 1));
             dom.inputBrushSize.value = brushSize;
@@ -1104,6 +1106,10 @@
             case 'E':
                 setTool(currentTool === 'eraser' ? 'none' : 'eraser');
                 break;
+            case 'm':
+            case 'M':
+                setTool(currentTool === 'move' ? 'none' : 'move');
+                break;
             case '[':
                 brushSize = Math.max(1, brushSize - 1);
                 dom.inputBrushSize.value = brushSize;
@@ -1116,7 +1122,9 @@
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
-                if (state.currentFrame > 0) {
+                if (currentTool === 'move') {
+                    nudgeFrames(-1, 0);
+                } else if (state.currentFrame > 0) {
                     state.currentFrame--;
                     showFrame(state.currentFrame);
                     if (!e.shiftKey) {
@@ -1130,7 +1138,9 @@
                 break;
             case 'ArrowRight':
                 e.preventDefault();
-                if (state.currentFrame < state.frames.length - 1) {
+                if (currentTool === 'move') {
+                    nudgeFrames(1, 0);
+                } else if (state.currentFrame < state.frames.length - 1) {
                     state.currentFrame++;
                     showFrame(state.currentFrame);
                     if (!e.shiftKey) {
@@ -1140,6 +1150,18 @@
                         state.selectedFrames.add(state.currentFrame);
                     }
                     updateSelectionUI();
+                }
+                break;
+            case 'ArrowUp':
+                if (currentTool === 'move') {
+                    e.preventDefault();
+                    nudgeFrames(0, -1);
+                }
+                break;
+            case 'ArrowDown':
+                if (currentTool === 'move') {
+                    e.preventDefault();
+                    nudgeFrames(0, 1);
                 }
                 break;
         }
@@ -1629,6 +1651,7 @@
         dom.btnExportAse.disabled = !enabled;
         dom.btnPencil.disabled = !enabled;
         dom.btnEraser.disabled = !enabled;
+        dom.btnMove.disabled = !enabled;
         dom.inputBrushSize.disabled = !enabled;
     }
 
@@ -1793,6 +1816,48 @@
         updateFrameThumbnail(entry.frameIndex);
     }
 
+    // ==============================
+    // Move Tool — Nudge frame pixels
+    // ==============================
+    function nudgeFrames(dx, dy) {
+        if (state.frames.length === 0) return;
+
+        // Determine which frames to move: selected frames, or current frame
+        const targets = state.selectedFrames.size > 0
+            ? [...state.selectedFrames]
+            : [state.currentFrame];
+
+        for (const fi of targets) {
+            const frame = state.frames[fi];
+            if (!frame) continue;
+
+            // Save undo state for each affected frame
+            saveUndoState(fi);
+
+            const canvas = frame.canvas;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Read current pixels
+            const src = ctx.getImageData(0, 0, w, h);
+
+            // Clear and redraw shifted
+            ctx.clearRect(0, 0, w, h);
+            ctx.putImageData(src, dx, dy);
+
+            // Update stored imageData
+            frame.imageData = ctx.getImageData(0, 0, w, h);
+
+            // Refresh thumbnail
+            updateFrameThumbnail(fi);
+        }
+
+        // Refresh canvas display
+        showFrame(state.currentFrame);
+        showToast(`${targets.length}개 프레임 이동 (${dx > 0 ? '→' : dx < 0 ? '←' : ''}${dy > 0 ? '↓' : dy < 0 ? '↑' : ''})`, 'info');
+    }
+
     // Brush overlay canvas (pixel-perfect cursor)
     let cursorOverlay = null;
 
@@ -1857,9 +1922,13 @@
         currentTool = tool;
         dom.btnPencil.classList.toggle('tool-active', tool === 'pencil');
         dom.btnEraser.classList.toggle('tool-active', tool === 'eraser');
+        dom.btnMove.classList.toggle('tool-active', tool === 'move');
 
         if (tool === 'none') {
             dom.previewCanvas.style.cursor = 'default';
+            clearBrushOverlay();
+        } else if (tool === 'move') {
+            dom.previewCanvas.style.cursor = 'move';
             clearBrushOverlay();
         } else {
             ensureCursorOverlay();

@@ -90,6 +90,17 @@
                     </svg>
                     지우개
                 </button>
+                <button id="btn-move" class="toolbar-btn" disabled title="이동 도구 (M) — 방향키로 프레임 이미지 이동">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="5,9 2,12 5,15" />
+                        <polyline points="9,5 12,2 15,5" />
+                        <polyline points="15,19 12,22 9,19" />
+                        <polyline points="19,9 22,12 19,15" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <line x1="12" y1="2" x2="12" y2="22" />
+                    </svg>
+                    이동
+                </button>
                 <div class="toolbar-group">
                     <label class="toolbar-label">브러시</label>
                     <input type="number" id="input-brush-size" class="toolbar-input" value="1" min="1" max="32" disabled style="width:48px;">
@@ -308,6 +319,8 @@
                         <tr class="shortcut-section"><td colspan="2">도구</td></tr>
                         <tr><td>연필 (브러시)</td><td><kbd>B</kbd></td></tr>
                         <tr><td>지우개</td><td><kbd>E</kbd></td></tr>
+                        <tr><td>이동 도구</td><td><kbd>M</kbd></td></tr>
+                        <tr><td>프레임 이미지 이동</td><td><kbd>M</kbd> 활성 + <kbd>방향키</kbd></td></tr>
                         <tr><td>브러시 크기 줄이기</td><td><kbd>[</kbd></td></tr>
                         <tr><td>브러시 크기 늘리기</td><td><kbd>]</kbd></td></tr>
                         <tr><td>되돌리기 (Undo)</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td></tr>
