@@ -298,16 +298,27 @@
     // ==============================
     function handleFileSelect(e) {
         const file = e.target.files[0];
-        if (file) loadGifFile(file);
+        if (file) loadFile(file);
         e.target.value = '';
     }
 
     function handleDrop(e) {
         const file = e.dataTransfer.files[0];
-        if (file && file.type === 'image/gif') {
-            loadGifFile(file);
+        if (!file) return;
+        const ext = file.name.toLowerCase();
+        if (file.type === 'image/gif' || ext.endsWith('.aseprite') || ext.endsWith('.ase')) {
+            loadFile(file);
         } else {
-            showToast('GIF 파일만 지원됩니다', 'error');
+            showToast('GIF 또는 Aseprite 파일만 지원됩니다', 'error');
+        }
+    }
+
+    function loadFile(file) {
+        const ext = file.name.toLowerCase();
+        if (ext.endsWith('.aseprite') || ext.endsWith('.ase')) {
+            loadAsepriteFile(file);
+        } else {
+            loadGifFile(file);
         }
     }
 
@@ -331,6 +342,82 @@
             } catch (err) {
                 showToast('GIF 파싱 실패: ' + err.message, 'error');
                 // Remove failed doc
+                documents.pop();
+                if (documents.length > 0) {
+                    activeDocIndex = documents.length - 1;
+                    state = documents[activeDocIndex];
+                    restoreDocState();
+                } else {
+                    activeDocIndex = -1;
+                    state = createDocState('untitled');
+                }
+                renderTabs();
+                console.error(err);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function loadAsepriteFile(file) {
+        const docName = file.name.replace(/\.(aseprite|ase)$/i, '');
+        const newDoc = createDocState(docName + '_edited.gif');
+        newDoc._tabName = docName;
+        documents.push(newDoc);
+        activeDocIndex = documents.length - 1;
+        state = documents[activeDocIndex];
+
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+            try {
+                const buffer = new Uint8Array(e.target.result);
+                const aseData = await AsepriteEncoder.decode(buffer);
+
+                state.originalWidth = aseData.width;
+                state.originalHeight = aseData.height;
+                const sizeVal = parseInt(dom.selectSize.value);
+                if (sizeVal > 0) {
+                    state.outputWidth = sizeVal;
+                    state.outputHeight = sizeVal;
+                } else {
+                    state.outputWidth = aseData.width;
+                    state.outputHeight = aseData.height;
+                }
+
+                state.frames = [];
+                for (let i = 0; i < aseData.frames.length; i++) {
+                    const pixels = aseData.frames[i];
+                    const canvas = document.createElement('canvas');
+                    canvas.width = aseData.width;
+                    canvas.height = aseData.height;
+                    const ctx = canvas.getContext('2d');
+                    const imageData = new ImageData(
+                        new Uint8ClampedArray(pixels), aseData.width, aseData.height
+                    );
+                    ctx.putImageData(imageData, 0, 0);
+                    state.frames.push({
+                        imageData: imageData,
+                        delay: aseData.delays[i] || 100,
+                        canvas: canvas
+                    });
+                }
+
+                state.tags = aseData.tags || [];
+
+                dom.dropZone.style.display = 'none';
+                dom.canvasContainer.style.display = 'block';
+                dom.canvasInfo.style.display = 'flex';
+                enableControls(true);
+
+                renderFrameList();
+                renderTagBar();
+                fitZoomToContainer();
+                showFrame(0);
+                updateInfo();
+                extractPalette();
+                renderTabs();
+                showToast(`${file.name} 로드 완료 (${state.frames.length}프레임)`, 'success');
+            } catch (err) {
+                showToast('Aseprite 파싱 실패: ' + err.message, 'error');
                 documents.pop();
                 if (documents.length > 0) {
                     activeDocIndex = documents.length - 1;

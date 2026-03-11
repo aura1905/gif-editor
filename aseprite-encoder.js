@@ -310,6 +310,197 @@ const AsepriteEncoder = (function () {
         w.writeDwordAt(chunkStart, w.pos - chunkStart);
     }
 
+    // ==============================
+    // Decoder (read .aseprite/.ase)
+    // ==============================
+    class BinaryReader {
+        constructor(buffer) {
+            this.data = new Uint8Array(buffer);
+            this.pos = 0;
+        }
+        readByte() { return this.data[this.pos++]; }
+        readWord() {
+            const v = this.data[this.pos] | (this.data[this.pos + 1] << 8);
+            this.pos += 2;
+            return v;
+        }
+        readShort() {
+            const v = this.readWord();
+            return v >= 0x8000 ? v - 0x10000 : v;
+        }
+        readDword() {
+            const v = this.data[this.pos] | (this.data[this.pos + 1] << 8) |
+                      (this.data[this.pos + 2] << 16) | ((this.data[this.pos + 3] << 24) >>> 0);
+            this.pos += 4;
+            return v;
+        }
+        readBytes(n) {
+            const arr = this.data.slice(this.pos, this.pos + n);
+            this.pos += n;
+            return arr;
+        }
+        readString() {
+            const len = this.readWord();
+            const bytes = this.readBytes(len);
+            return new TextDecoder().decode(bytes);
+        }
+        skip(n) { this.pos += n; }
+    }
+
+    async function zlibDecompress(data) {
+        const stream = new Blob([data]).stream();
+        const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
+        const reader = decompressedStream.getReader();
+        const chunks = [];
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+        }
+        const totalLen = chunks.reduce((sum, c) => sum + c.length, 0);
+        const result = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const chunk of chunks) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+        }
+        return result;
+    }
+
+    async function decode(buffer) {
+        const r = new BinaryReader(buffer);
+
+        // File Header (128 bytes)
+        const fileSize = r.readDword();
+        const magic = r.readWord();
+        if (magic !== 0xA5E0) throw new Error('유효한 Aseprite 파일이 아닙니다');
+        const numFrames = r.readWord();
+        const width = r.readWord();
+        const height = r.readWord();
+        const colorDepth = r.readWord();
+        r.skip(128 - 14); // Rest of header
+
+        const frames = [];
+        const delays = [];
+        const tags = [];
+
+        for (let fi = 0; fi < numFrames; fi++) {
+            const frameStart = r.pos;
+            const frameSize = r.readDword();
+            const frameMagic = r.readWord();
+            if (frameMagic !== 0xF1FA) throw new Error('잘못된 프레임 헤더');
+            const oldChunkCount = r.readWord();
+            const duration = r.readWord();
+            r.skip(2); // Reserved
+            const newChunkCount = r.readDword();
+            const chunkCount = newChunkCount !== 0 ? newChunkCount : oldChunkCount;
+
+            delays.push(duration || 100);
+            let celPixels = null;
+
+            for (let ci = 0; ci < chunkCount; ci++) {
+                const chunkStart = r.pos;
+                const chunkSize = r.readDword();
+                const chunkType = r.readWord();
+
+                if (chunkType === 0x2005) {
+                    // Cel Chunk
+                    const layerIndex = r.readWord();
+                    const xPos = r.readShort();
+                    const yPos = r.readShort();
+                    const opacity = r.readByte();
+                    const celType = r.readWord();
+                    r.readShort(); // z-index
+                    r.skip(5); // reserved
+
+                    if (celType === 2) {
+                        // Compressed Image
+                        const celW = r.readWord();
+                        const celH = r.readWord();
+                        const compressedLen = chunkSize - (r.pos - chunkStart);
+                        const compressed = r.readBytes(compressedLen);
+                        const decompressed = await zlibDecompress(compressed);
+
+                        // Place cel onto full-size canvas
+                        celPixels = new Uint8Array(width * height * 4);
+                        for (let y = 0; y < celH; y++) {
+                            for (let x = 0; x < celW; x++) {
+                                const destX = x + xPos;
+                                const destY = y + yPos;
+                                if (destX >= 0 && destX < width && destY >= 0 && destY < height) {
+                                    const srcIdx = (y * celW + x) * 4;
+                                    const dstIdx = (destY * width + destX) * 4;
+                                    celPixels[dstIdx] = decompressed[srcIdx];
+                                    celPixels[dstIdx + 1] = decompressed[srcIdx + 1];
+                                    celPixels[dstIdx + 2] = decompressed[srcIdx + 2];
+                                    celPixels[dstIdx + 3] = decompressed[srcIdx + 3];
+                                }
+                            }
+                        }
+                    } else if (celType === 0) {
+                        // Raw Image
+                        const celW = r.readWord();
+                        const celH = r.readWord();
+                        celPixels = new Uint8Array(width * height * 4);
+                        const rawLen = celW * celH * (colorDepth / 8);
+                        const raw = r.readBytes(rawLen);
+                        for (let y = 0; y < celH; y++) {
+                            for (let x = 0; x < celW; x++) {
+                                const destX = x + xPos;
+                                const destY = y + yPos;
+                                if (destX >= 0 && destX < width && destY >= 0 && destY < height) {
+                                    const srcIdx = (y * celW + x) * 4;
+                                    const dstIdx = (destY * width + destX) * 4;
+                                    celPixels[dstIdx] = raw[srcIdx];
+                                    celPixels[dstIdx + 1] = raw[srcIdx + 1];
+                                    celPixels[dstIdx + 2] = raw[srcIdx + 2];
+                                    celPixels[dstIdx + 3] = raw[srcIdx + 3];
+                                }
+                            }
+                        }
+                    } else {
+                        // Skip unsupported cel types
+                        r.pos = chunkStart + chunkSize;
+                    }
+                } else if (chunkType === 0x2018) {
+                    // Tags Chunk
+                    const numTags = r.readWord();
+                    r.skip(8); // Reserved
+                    for (let ti = 0; ti < numTags; ti++) {
+                        const from = r.readWord();
+                        const to = r.readWord();
+                        r.readByte(); // loop direction
+                        r.readWord(); // repeat
+                        r.skip(6); // reserved
+                        const cr = r.readByte();
+                        const cg = r.readByte();
+                        const cb = r.readByte();
+                        r.readByte(); // extra
+                        const name = r.readString();
+                        const color = '#' + cr.toString(16).padStart(2, '0') +
+                                            cg.toString(16).padStart(2, '0') +
+                                            cb.toString(16).padStart(2, '0');
+                        tags.push({ name, from, to, color });
+                    }
+                } else {
+                    // Skip other chunks
+                    r.pos = chunkStart + chunkSize;
+                }
+            }
+
+            if (celPixels) {
+                frames.push(celPixels);
+            } else {
+                // Empty frame
+                frames.push(new Uint8Array(width * height * 4));
+            }
+
+            r.pos = frameStart + frameSize;
+        }
+
+        return { width, height, frames, delays, tags };
+    }
+
     // Public API
-    return { encode };
+    return { encode, decode };
 })();
