@@ -544,10 +544,15 @@
 
             thumbEl.appendChild(thumbCanvas);
 
-            // Delay
+            // Delay (클릭하여 개별 편집 가능)
             const delayEl = document.createElement('span');
             delayEl.className = 'frame-delay';
             delayEl.textContent = (frame.delay / 1000).toFixed(2) + 's';
+            delayEl.title = '클릭하여 딜레이 편집';
+            delayEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                editFrameDelay(i, delayEl);
+            });
 
             item.appendChild(numEl);
             item.appendChild(thumbEl);
@@ -844,6 +849,54 @@
             renderFrameList();
             showToast(`전체 프레임 속도: ${(speed / 1000).toFixed(2)}초`);
         }
+    }
+
+    // 프레임 개별 딜레이 편집
+    function editFrameDelay(frameIndex, delayEl) {
+        const frame = state.frames[frameIndex];
+        if (!frame) return;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'frame-delay-input';
+        input.value = frame.delay;
+        input.min = 10;
+        input.max = 10000;
+        input.step = 10;
+
+        delayEl.textContent = '';
+        delayEl.appendChild(input);
+        input.focus();
+        input.select();
+
+        function applyDelay() {
+            const val = parseInt(input.value);
+            if (val >= 10 && val <= 10000) {
+                // 다중 선택 시 선택된 프레임 전체에 적용
+                const targets = state.selectedFrames.size > 0 && state.selectedFrames.has(frameIndex)
+                    ? [...state.selectedFrames]
+                    : [frameIndex];
+                targets.forEach(fi => {
+                    if (state.frames[fi]) state.frames[fi].delay = val;
+                });
+                showToast(`${targets.length}개 프레임 딜레이: ${(val / 1000).toFixed(2)}초`);
+            }
+            renderFrameList();
+        }
+
+        input.addEventListener('blur', applyDelay);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                input.removeEventListener('blur', applyDelay);
+                renderFrameList();
+            }
+            e.stopPropagation();
+        });
+        input.addEventListener('click', (e) => e.stopPropagation());
     }
 
     // ==============================

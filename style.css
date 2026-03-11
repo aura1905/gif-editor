@@ -511,6 +511,27 @@ body {
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
     margin-left: auto;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 3px;
+}
+
+.frame-delay:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.frame-delay-input {
+    width: 50px;
+    font-size: 11px;
+    padding: 1px 3px;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    text-align: center;
+    outline: none;
+    font-variant-numeric: tabular-nums;
 }
 
 /* ================================
