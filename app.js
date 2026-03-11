@@ -160,7 +160,10 @@
             e.preventDefault();
             if (e.dataTransfer.files.length > 0) {
                 const file = e.dataTransfer.files[0];
-                if (file.type === 'image/gif') loadGifFile(file);
+                const ext = file.name.toLowerCase();
+                if (file.type === 'image/gif' || ext.endsWith('.aseprite') || ext.endsWith('.ase')) {
+                    loadFile(file);
+                }
             }
         });
 
