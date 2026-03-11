@@ -347,6 +347,94 @@
         reader.readAsArrayBuffer(file);
     }
 
+    // GIF Comment Extension: embed/extract metadata in GIF binary
+    function embedGifComment(gifData, text) {
+        // GIF Comment Extension block is inserted before the trailer (0x3B)
+        const encoder = new TextEncoder();
+        const textBytes = encoder.encode(text);
+        const blocks = [];
+        // Extension Introducer + Comment Label
+        blocks.push(new Uint8Array([0x21, 0xFE]));
+        // Split text into sub-blocks (max 255 bytes each)
+        for (let i = 0; i < textBytes.length; i += 255) {
+            const chunk = textBytes.slice(i, i + 255);
+            blocks.push(new Uint8Array([chunk.length]));
+            blocks.push(chunk);
+        }
+        // Block terminator
+        blocks.push(new Uint8Array([0x00]));
+
+        // Insert before the last byte (trailer 0x3B)
+        const before = gifData.slice(0, gifData.length - 1);
+        const trailer = gifData.slice(gifData.length - 1);
+        const totalLen = before.length + blocks.reduce((s, b) => s + b.length, 0) + trailer.length;
+        const result = new Uint8Array(totalLen);
+        let offset = 0;
+        result.set(before, offset); offset += before.length;
+        for (const b of blocks) { result.set(b, offset); offset += b.length; }
+        result.set(trailer, offset);
+        return result;
+    }
+
+    function extractGifComment(buffer) {
+        const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        let i = 0;
+        // Skip GIF header (6 bytes) + Logical Screen Descriptor (7 bytes)
+        i = 6 + 7;
+        // Skip Global Color Table if present
+        const packed = data[10];
+        if (packed & 0x80) {
+            const gctSize = 3 * (1 << ((packed & 0x07) + 1));
+            i += gctSize;
+        } else {
+            i = 13;
+        }
+
+        let lastComment = null;
+        while (i < data.length) {
+            const block = data[i];
+            if (block === 0x3B) break; // Trailer
+            if (block === 0x21) { // Extension
+                const label = data[i + 1];
+                i += 2;
+                if (label === 0xFE) { // Comment Extension
+                    let commentBytes = [];
+                    while (i < data.length) {
+                        const subLen = data[i]; i++;
+                        if (subLen === 0) break;
+                        for (let j = 0; j < subLen; j++) commentBytes.push(data[i + j]);
+                        i += subLen;
+                    }
+                    const decoder = new TextDecoder();
+                    lastComment = decoder.decode(new Uint8Array(commentBytes));
+                } else {
+                    // Skip other extensions
+                    while (i < data.length) {
+                        const subLen = data[i]; i++;
+                        if (subLen === 0) break;
+                        i += subLen;
+                    }
+                }
+            } else if (block === 0x2C) { // Image Descriptor
+                i += 9; // Skip image descriptor
+                const lpacked = data[i]; i++;
+                if (lpacked & 0x80) {
+                    const lctSize = 3 * (1 << ((lpacked & 0x07) + 1));
+                    i += lctSize;
+                }
+                i++; // LZW minimum code size
+                while (i < data.length) {
+                    const subLen = data[i]; i++;
+                    if (subLen === 0) break;
+                    i += subLen;
+                }
+            } else {
+                i++; // Unknown, skip
+            }
+        }
+        return lastComment;
+    }
+
     function parseGif(buffer) {
         stopPlay();
         zoomLevel = 1;
@@ -444,6 +532,18 @@
             }
         }
 
+        // Restore tags from GIF Comment Extension
+        state.tags = [];
+        const comment = extractGifComment(buffer);
+        if (comment) {
+            try {
+                const meta = JSON.parse(comment);
+                if (Array.isArray(meta.tags)) {
+                    state.tags = meta.tags;
+                }
+            } catch (e) { /* not our metadata, ignore */ }
+        }
+
         // Show UI
         dom.dropZone.style.display = 'none';
         dom.canvasContainer.style.display = 'block';
@@ -451,6 +551,7 @@
         enableControls(true);
 
         renderFrameList();
+        renderTagBar();
         fitZoomToContainer();
         showFrame(0);
         updateInfo();
@@ -1018,7 +1119,12 @@
                 }
 
                 const endPos = gifWriter.end();
-                const output = buf.slice(0, endPos);
+                let output = buf.slice(0, endPos);
+
+                // Embed tags as GIF Comment Extension
+                if (state.tags.length > 0) {
+                    output = embedGifComment(output, JSON.stringify({ tags: state.tags }));
+                }
 
                 // Download
                 const blob = new Blob([output], { type: 'image/gif' });
@@ -1312,6 +1418,7 @@
             dom.canvasInfo.style.display = 'flex';
             enableControls(true);
             renderFrameList();
+            renderTagBar();
             showFrame(state.currentFrame);
         } else {
             dom.dropZone.style.display = 'flex';
