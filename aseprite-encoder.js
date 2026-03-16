@@ -164,7 +164,7 @@ const AsepriteEncoder = (function () {
                 chunkCount += 1; // Color Profile
                 chunkCount += 1; // Layer
                 chunkCount += 1; // Palette
-                if (tags.length > 0) chunkCount += 1; // Tags
+                if (tags.length > 0) chunkCount += 1 + tags.length; // Tags + User Data per tag
             }
 
             // Frame header (16 bytes)
@@ -188,6 +188,10 @@ const AsepriteEncoder = (function () {
                 // --- Tags Chunk (0x2018) ---
                 if (tags.length > 0) {
                     writeTagsChunk(w, tags);
+                    // User Data chunk per tag (for Unity compatibility)
+                    for (const tag of tags) {
+                        writeUserDataChunk(w, tag.color);
+                    }
                 }
             }
 
@@ -284,6 +288,20 @@ const AsepriteEncoder = (function () {
             w.writeString(tag.name);
         }
 
+        w.writeDwordAt(chunkStart, w.pos - chunkStart);
+    }
+
+    function writeUserDataChunk(w, hexColor) {
+        const chunkStart = w.pos;
+        w.writeDword(0);            // Chunk size (fill later)
+        w.writeWord(0x2020);        // Chunk type: User Data
+        const flags = 0x02;         // Has color
+        w.writeDword(flags);
+        const rgb = hexToRgb(hexColor);
+        w.writeByte(rgb.r);
+        w.writeByte(rgb.g);
+        w.writeByte(rgb.b);
+        w.writeByte(255);           // Alpha
         w.writeDwordAt(chunkStart, w.pos - chunkStart);
     }
 
