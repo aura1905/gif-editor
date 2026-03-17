@@ -1714,6 +1714,7 @@
         state.tags.push({ name, from, to, color });
         closeTagModal();
         renderFrameList();
+        renderTagBar();
         showToast(`태그 "${name}" 생성 (프레임 ${from + 1}~${to + 1})`, 'success');
     }
 
@@ -1721,6 +1722,7 @@
         const tag = state.tags[index];
         state.tags.splice(index, 1);
         renderFrameList();
+        renderTagBar();
         showToast(`태그 "${tag.name}" 삭제됨`);
     }
 
